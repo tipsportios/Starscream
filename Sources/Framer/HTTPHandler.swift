@@ -77,7 +77,7 @@ public struct HTTPWSHeader {
 	     }
         
         if supportsCompression {
-            let val = "permessage-deflate; client_max_window_bits; server_max_window_bits=15"
+            let val = "permessage-deflate, client_max_window_bits" //; server_max_window_bits=15" server to nepodporuje, je moc stary
             req.setValue(val, forHTTPHeaderField: HTTPWSHeader.extensionName)
         }
         let hostValue = req.allHTTPHeaderFields?[HTTPWSHeader.hostName] ?? "\(parts.host):\(parts.port)"

@@ -25,14 +25,38 @@ import Foundation
 @available(macOS 10.15, iOS 13.0, watchOS 6.0, tvOS 13.0, *)
 public class NativeEngine: NSObject, Engine, URLSessionDataDelegate, URLSessionWebSocketDelegate {
     private var task: URLSessionWebSocketTask?
+    private var clientCredential: URLCredential?
+    private var socksProxy: String?
+    private weak var sessionDelegate: URLSessionDelegate?
     weak var delegate: EngineDelegate?
+
+    public init(sessionDelegate: URLSessionDelegate? = nil, clientCredential: URLCredential? = nil, socksProxy: String? = nil) {
+        self.sessionDelegate = sessionDelegate
+        self.clientCredential = clientCredential
+        self.socksProxy = socksProxy
+    }
 
     public func register(delegate: EngineDelegate) {
         self.delegate = delegate
     }
 
     public func start(request: URLRequest) {
-        let session = URLSession(configuration: URLSessionConfiguration.default, delegate: self, delegateQueue: nil)
+        let config = URLSessionConfiguration.default
+        if let parts = socksProxy?.split(separator: ":"), parts.count > 2 {
+            // ma format nazev:ip:port
+            let ip = String(parts[1])
+            let port = Int(parts[2]) ?? 8080
+
+            let customSocksConfig = [
+                kCFStreamPropertySOCKSProxyHost: ip,
+                kCFStreamPropertySOCKSProxyPort: port,
+                kCFStreamPropertySOCKSVersion: kCFStreamSocketSOCKSVersion4,
+                "SOCKSEnable": 1
+            ] as [AnyHashable: Any]
+
+            config.connectionProxyDictionary = customSocksConfig
+        }
+        let session = URLSession(configuration: config, delegate: self, delegateQueue: nil)
         task = session.webSocketTask(with: request)
         doRead()
         task?.resume()
@@ -109,6 +133,10 @@ public class NativeEngine: NSObject, Engine, URLSessionDataDelegate, URLSessionW
         broadcast(event: .disconnected(r, UInt16(closeCode.rawValue)))
     }
     
+    public func urlSession(_ session: URLSession, didReceive challenge: URLAuthenticationChallenge, completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
+        self.sessionDelegate?.urlSession?(session, didReceive: challenge, completionHandler: completionHandler)
+    }
+
     public func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         broadcast(event: .error(error))
     }

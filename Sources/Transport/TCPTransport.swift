@@ -53,7 +53,7 @@ public class TCPTransport: Transport {
         //normal connection, will use the "connect" method below
     }
     
-    public func connect(url: URL, timeout: Double = 10, certificatePinning: CertificatePinning? = nil) {
+    public func connect(url: URL, timeout: Double = 10, certificatePinning: CertificatePinning? = nil, clientCredential: URLCredential? = nil, socksProxy: String? = nil) {
         guard let parts = url.getParts() else {
             delegate?.connectionChanged(state: .failed(TCPTransportError.invalidRequest))
             return
@@ -79,8 +79,27 @@ public class TCPTransport: Transport {
                     }
                 })
             }, queue)
+
+            if let clientCredential, let identity = clientCredential.identity {
+                sec_protocol_options_set_local_identity(tlsOpts.securityProtocolOptions, sec_identity_create(identity)!)
+                sec_protocol_options_set_challenge_block(tlsOpts.securityProtocolOptions, { (_, completion) in
+                    completion(sec_identity_create(identity))
+                }, queue)
+            }
         }
+
         let parameters = NWParameters(tls: tlsOptions, tcp: options)
+
+        if #available(iOS 17.0, *), let parts = socksProxy?.split(separator: ":"), parts.count > 2 {
+            // ma format nazev:ip:port
+            let ip = String(parts[1])
+            let port = String(parts[2]) ?? "8080"
+
+            let privacyContext = NWParameters.PrivacyContext(description: "socks5")
+            let endPoint = NWEndpoint.hostPort(host: .init(ip), port: .init(port)!)
+            privacyContext.proxyConfigurations = [.init(socksv5Proxy: endPoint)]
+            parameters.setPrivacyContext(privacyContext)
+        }
         let conn = NWConnection(host: NWEndpoint.Host.name(parts.host, nil), port: NWEndpoint.Port(rawValue: UInt16(parts.port))!, using: parameters)
         connection = conn
         start()

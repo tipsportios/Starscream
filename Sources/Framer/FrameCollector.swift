@@ -43,6 +43,14 @@ public class FrameCollector {
     var needsDecompression = false
     
     public func add(frame: Frame) {
+        // JaLo: pridano pro mereni prenosu dat
+        NotificationCenter.default.post(
+            name: Notification.Name("TSNSocketMessageTransferred"),
+            object: self,
+            userInfo: [
+                "size": frame.payload.count
+            ]
+        )
         //check single frame action and out of order frames
         if frame.opcode == .connectionClose {
             var code = frame.closeCode

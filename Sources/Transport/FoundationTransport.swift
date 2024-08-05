@@ -52,7 +52,7 @@ public class FoundationTransport: NSObject, Transport, StreamDelegate {
         outputStream?.delegate = nil
     }
     
-    public func connect(url: URL, timeout: Double = 10, certificatePinning: CertificatePinning? = nil) {
+    public func connect(url: URL, timeout: Double = 10, certificatePinning: CertificatePinning? = nil, clientCredential: URLCredential? = nil, socksProxy: String? = nil) {
         guard let parts = url.getParts() else {
             delegate?.connectionChanged(state: .failed(FoundationTransportError.invalidRequest))
             return
@@ -75,8 +75,34 @@ public class FoundationTransport: NSObject, Transport, StreamDelegate {
             let key = CFStreamPropertyKey(rawValue: kCFStreamPropertySocketSecurityLevel)
             CFReadStreamSetProperty(inStream, key, kCFStreamSocketSecurityLevelNegotiatedSSL)
             CFWriteStreamSetProperty(outStream, key, kCFStreamSocketSecurityLevelNegotiatedSSL)
+
+            if let clientCredential, let identity = clientCredential.identity {
+                let certs = [identity] + clientCredential.certificates
+                let sslSettings = [kCFStreamSSLCertificates: certs] as CFDictionary
+                let sslSettingKey = CFStreamPropertyKey(rawValue: kCFStreamPropertySSLSettings)
+                
+                CFReadStreamSetProperty(inStream, sslSettingKey, sslSettings)
+                CFWriteStreamSetProperty(outStream, sslSettingKey, sslSettings)
+            }
         }
-        
+
+        if let parts = socksProxy?.split(separator: ":"), parts.count > 2 {
+            // format je nazev:ip:port
+            let ip = String(parts[1])
+            let port = Int(parts[2]) ?? 8080
+
+            let customSocksConfig = [
+                kCFStreamPropertySOCKSProxyHost: ip,
+                kCFStreamPropertySOCKSProxyPort: port,
+                kCFStreamPropertySOCKSVersion: kCFStreamSocketSOCKSVersion4,
+                "SOCKSEnable": 1
+            ] as [AnyHashable: Any] as CFDictionary?
+
+            let propertyKey = CFStreamPropertyKey(rawValue: kCFStreamPropertySOCKSProxy)
+            CFWriteStreamSetProperty(self.outputStream, propertyKey, customSocksConfig)
+            CFReadStreamSetProperty(self.inputStream, propertyKey, customSocksConfig)
+        }
+
         onConnect?(inStream, outStream)
         
         isOpen = false
