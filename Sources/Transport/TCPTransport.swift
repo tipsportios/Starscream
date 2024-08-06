@@ -91,7 +91,7 @@ public class TCPTransport: Transport {
         let parameters = NWParameters(tls: tlsOptions, tcp: options)
 
         if #available(iOS 17.0, *), let parts = socksProxy?.split(separator: ":"), parts.count > 2 {
-            // ma format nazev:ip:port
+            // format is text:ip:port
             let ip = String(parts[1])
             let port = String(parts[2]) ?? "8080"
 

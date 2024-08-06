@@ -43,7 +43,7 @@ public class NativeEngine: NSObject, Engine, URLSessionDataDelegate, URLSessionW
     public func start(request: URLRequest) {
         let config = URLSessionConfiguration.default
         if let parts = socksProxy?.split(separator: ":"), parts.count > 2 {
-            // ma format nazev:ip:port
+            // format is text:ip:port
             let ip = String(parts[1])
             let port = Int(parts[2]) ?? 8080
 

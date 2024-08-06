@@ -43,9 +43,9 @@ public class FrameCollector {
     var needsDecompression = false
     
     public func add(frame: Frame) {
-        // JaLo: pridano pro mereni prenosu dat
+        // sends a payload size for statistics
         NotificationCenter.default.post(
-            name: Notification.Name("TSNSocketMessageTransferred"),
+            name: .init("SocketMessageTransferred"),
             object: self,
             userInfo: [
                 "size": frame.payload.count
